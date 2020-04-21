@@ -25,7 +25,7 @@ type evictionStore struct {
 	clock            clock.Clock
 }
 
-func New(keyFunc keyFunction, ttl time.Duration, clock clock.Clock) *evictionStore {
+func New(keyFunc func(obj interface{}) string, ttl time.Duration, clock clock.Clock) *evictionStore {
 	return &evictionStore{
 		keyFunc: keyFunc,
 		store:   map[string]*list.Element{},
@@ -52,6 +52,8 @@ func (s *evictionStore) Add(obj interface{}) {
 
 func (s *evictionStore) Get(key string) interface{} {
 	ts := s.clock.Now()
+	s.lock.Lock()
+	defer s.lock.Unlock()
 	defer s.evictLocked(ts)
 
 	if e, ok := s.store[key]; ok {
