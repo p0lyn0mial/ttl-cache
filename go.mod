@@ -1,4 +1,4 @@
-module github.com/p0lyn0mial/eviction_store
+module github.com/p0lyn0mial/ttl-cache
 
 go 1.12
 

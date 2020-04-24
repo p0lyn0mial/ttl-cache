@@ -1,33 +1,28 @@
-package eviction_store
+package ttl_cache
 
 import (
 	"container/list"
-	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/clock"
 )
 
-type keyFunction func(obj interface{}) string
-
 type item struct {
 	obj       interface{}
 	timestamp time.Time
+	key string
 }
 
 type evictionStore struct {
 	store            map[string]*list.Element
 	queue            *list.List
-	lock             sync.Mutex
-	keyFunc          keyFunction
 	ttl              time.Duration
 	lastEvictionTime time.Time
 	clock            clock.Clock
 }
 
-func New(keyFunc func(obj interface{}) string, ttl time.Duration, clock clock.Clock) *evictionStore {
+func New(ttl time.Duration, clock clock.Clock) *evictionStore {
 	return &evictionStore{
-		keyFunc: keyFunc,
 		store:   map[string]*list.Element{},
 		queue:   list.New(),
 		ttl:     ttl,
@@ -35,26 +30,21 @@ func New(keyFunc func(obj interface{}) string, ttl time.Duration, clock clock.Cl
 	}
 }
 
-func (s *evictionStore) Add(obj interface{}) {
+func (s *evictionStore) Add(key string, obj interface{}) {
 	ts := s.clock.Now()
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	defer s.evictLocked(ts)
+	defer s.evict(ts)
 
-	key := s.keyFunc(obj)
 	if e, ok := s.store[key]; ok {
 		e.Value.(*item).timestamp = ts
 		s.queue.MoveToFront(e)
 		return
 	}
-	s.store[key] = s.queue.PushFront(&item{obj: obj, timestamp: ts})
+	s.store[key] = s.queue.PushFront(&item{obj: obj, timestamp: ts, key: key})
 }
 
 func (s *evictionStore) Get(key string) interface{} {
 	ts := s.clock.Now()
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	defer s.evictLocked(ts)
+	defer s.evict(ts)
 
 	if e, ok := s.store[key]; ok {
 		e.Value.(*item).timestamp = ts
@@ -65,7 +55,7 @@ func (s *evictionStore) Get(key string) interface{} {
 	return nil
 }
 
-func (s *evictionStore) evictLocked(timestamp time.Time) {
+func (s *evictionStore) evict(timestamp time.Time) {
 	if s.lastEvictionTime.Add(s.ttl).After(timestamp) {
 		return
 	}
@@ -77,7 +67,7 @@ func (s *evictionStore) evictLocked(timestamp time.Time) {
 		if e.Value.(*item).timestamp.Add(s.ttl).After(timestamp) {
 			break
 		}
-		delete(s.store, s.keyFunc(e.Value.(*item).obj))
+		delete(s.store, e.Value.(*item).key)
 		s.queue.Remove(e)
 	}
 	s.lastEvictionTime = timestamp

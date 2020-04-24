@@ -1,4 +1,4 @@
-package eviction_store
+package ttl_cache
 
 import (
 	"fmt"
@@ -129,9 +129,9 @@ func TestEvictionStore(t *testing.T) {
 			fakeClock := &clock.FakeClock{}
 
 			// act
-			target := New(defaultKeyFunc, 10*time.Minute, fakeClock)
+			target := New(10*time.Minute, fakeClock)
 			for _, obj := range scenario.objs {
-				target.Add(obj)
+				target.Add(defaultKeyFunc(obj), obj)
 			}
 
 			for _, step := range scenario.steps {
