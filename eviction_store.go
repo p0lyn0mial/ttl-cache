@@ -55,6 +55,17 @@ func (s *evictionStore) Get(key string) interface{} {
 	return nil
 }
 
+func (s *evictionStore) List() []interface{} {
+	ret := []interface{}{}
+	for key, _ := range s.store {
+		if obj := s.Get(key); obj != nil {
+			ret = append(ret, obj)
+		}
+	}
+
+	return ret
+}
+
 func (s *evictionStore) evict(timestamp time.Time) {
 	if s.lastEvictionTime.Add(s.ttl).After(timestamp) {
 		return
