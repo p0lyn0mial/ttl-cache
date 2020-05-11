@@ -1,3 +1,0 @@
-# k8s.io/apimachinery v0.18.0
-k8s.io/apimachinery/pkg/util/clock
-k8s.io/apimachinery/pkg/util/sets
